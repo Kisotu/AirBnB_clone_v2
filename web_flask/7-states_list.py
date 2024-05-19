@@ -19,8 +19,7 @@ def states_list():
 def teardown_db(exception):
     """ teardown context"""
 
-    if storage is not None:
-        storage.close()
+    storage.close()
 
 
 if __name__ == '__main__':
