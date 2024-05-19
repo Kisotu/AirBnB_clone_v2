@@ -1,70 +1,92 @@
 #!/usr/bin/python3
-"""This module defines a class to manage file storage for hbnb clone"""
+"""FileStorage class"""
+
 import json
-import models
+from models.amenity import Amenity
+from models.base_model import BaseModel
+from models.city import City
+from models.place import Place
+from models.review import Review
+from models.state import State
+from models.user import User
+
+classes = {"Amenity": Amenity, "BaseModel": BaseModel, "City": City,
+           "Place": Place, "Review": Review, "State": State, "User": User}
 
 
 class FileStorage:
-    """
-    serializes and deserializes instances to and from JSON file
-    saved into file_path
-
-    """
+    """serializes instances to JSON & deserializes back to instances"""
 
     __file_path = "file.json"
     __objects = {}
 
     def all(self, cls=None):
-        """
-        returns a dictionary containing every object
-        """
-        if (not cls):
+        """returns __objects dict"""
+        if not cls:
             return self.__objects
-        result = {}
-        for key in self.__objects.keys():
-            if (key.split(".")[0] == cls.__name__):
-                result.update({key: self.__objects[key]})
-        return result
+        elif type(cls) == str:
+            return {k: v for k, v in self.__objects.items()
+                    if v.__class__.__name__ == cls}
+        else:
+            return {k: v for k, v in self.__objects.items()
+                    if v.__class__ == cls}
 
     def new(self, obj):
-        """
-        creates a new object and saves it to __objects
-        """
-        key = "{}.{}".format(type(obj).__name__, obj.id)
-        self.__objects[key] = obj
+        """sets __objects thewith key <obj class name>.id"""
+
+        if obj is not None:
+            key = obj.__class__.__name__ + "." + obj.id
+            self.__objects[key] = obj
 
     def save(self):
-        """
-        update the JSON file to reflect any change in the objects
-        """
-        temp = {}
-        for id, obj in self.__objects.items():
-            temp[id] = obj.to_dict()
-        with open(self.__file_path, "w") as json_file:
-            json.dump(temp, json_file)
+        """serializes __objects to JSON file (path: __file_path)"""
+
+        json_objects = {}
+        for key in self.__objects:
+            json_objects[key] = self.__objects[key].to_dict(save_to_disk=True)
+        with open(self.__file_path, 'w') as f:
+            json.dump(json_objects, f)
 
     def reload(self):
-        """
-        update __objects dict to restore previously created objects
-        """
+        """deserializes JSON file to __objects"""
+
         try:
-            with open(self.__file_path, "r") as json_file:
-                temp = json.load(json_file)
-            for id, dict in temp.items():
-                temp_instance = models.dummy_classes[dict["__class__"]](**dict)
-                self.__objects[id] = temp_instance
+            with open(self.__file_path, 'r') as f:
+                jo = json.load(f)
+            for key in jo:
+                self.__objects[key] = classes[jo[key]["__class__"]](**jo[key])
         except:
             pass
 
+    def delete(self, obj=None):
+        """delete obj from __objects if it’s inside"""
+
+        if obj is not None:
+            del self.__objects[obj.__class__.__name__ + '.' + obj.id]
+            self.save()
+
     def close(self):
-        """display our HBNB data
-        """
+        """Deserialize JSON file to objects"""
+
         self.reload()
 
-    def delete(self, obj=None):
-        """
-            delete obj from __objects if it’s inside - if obj is None,
-            the method should not do anything
-        """
-        if (obj):
-            self.__objects.pop("{}.{}".format(type(obj).__name__, obj.id))
+    def get(self, cls, id):
+        """Retrieve an object"""
+
+        if cls is not None and type(cls) is str and id is not None and\
+           type(id) is str and cls in classes:
+            key = cls + '.' + id
+            obj = self.__objects.get(key, None)
+            return obj
+        else:
+            return None
+
+    def count(self, cls=None):
+        """Count number of objects in storage"""
+
+        total = 0
+        if type(cls) == str and cls in classes:
+            total = len(self.all(cls))
+        elif cls is None:
+            total = len(self.__objects)
+        return total
